@@ -22,7 +22,7 @@ func precedence(typ ItemType) int {
 	}
 }
 
-func toPostfix(lx *Lexer) *list.List {
+func toPostfix(lx *Lexer) (*list.List, error) {
 
 	opStack := NewStack()
 	postFix := list.New()
@@ -36,7 +36,7 @@ func toPostfix(lx *Lexer) *list.List {
 
 		// lexing error
 		if item.Typ == IERR {
-			panic("Lexing error")
+			return nil, fmt.Errorf("Lexing error at %d: %s", item.pos, item.Val)
 		}
 
 		// if its number put to output
@@ -60,11 +60,16 @@ func toPostfix(lx *Lexer) *list.List {
 
 			// if there is none then there is error in parity
 			if opStack.Len() > 0 && opStack.Top().(LexItem).Typ != ILPAR {
-				panic("Invalid expr")
-			} else {
-				// otherwise just trash it
-				opStack.Pop()
+				return nil, fmt.Errorf("Parser error at %d: Unmatched paretheses", opStack.Top().(LexItem).pos)
 			}
+
+			// we are in rparenth so if there is no lparenh its parity error
+			if opStack.Len() == 0 {
+				return nil, fmt.Errorf("Parsing error at %d: Missing '('", item.pos)
+			}
+			// otherwise just trash it
+			opStack.Pop()
+
 		} else {
 			// is any other operator
 			// check precedence
@@ -82,42 +87,53 @@ func toPostfix(lx *Lexer) *list.List {
 		postFix.PushBack(opStack.Pop())
 	}
 
-	return postFix
+	return postFix, nil
 }
 
-func translateLexToAstType(typ ItemType) AstNodeType {
+func translateLexToAstType(typ ItemType) (AstNodeType, error) {
 	switch typ {
 	case IADD:
-		return ASTNODE_ADD
+		return ASTNODE_ADD, nil
 	case ISUB:
-		return ASTNODE_SUB
+		return ASTNODE_SUB, nil
 	case IMUL:
-		return ASTNODE_MUL
+		return ASTNODE_MUL, nil
 	case IDIV:
-		return ASTNODE_DIV
+		return ASTNODE_DIV, nil
 	default:
-		panic(fmt.Sprintf("Unexpected item type occured during parsing %q", typ))
+		return 0, fmt.Errorf("Unexpected item type occured during parsing %q", typ)
 	}
 }
 
-func constructAst(postfixList *list.List) *AstNode {
+func constructAst(postfixList *list.List) (*AstNode, error) {
 	stack := NewStack()
 	for item := postfixList.Front(); item != nil; item = item.Next() {
 		lexItem := item.Value.(LexItem)
 		if lexItem.Typ == INUMBER {
 			stack.Push(NewAstNode(ASTNODE_LEAF, &lexItem.Val))
 		} else {
-			nodeType := translateLexToAstType(lexItem.Typ)
+			nodeType, err := translateLexToAstType(lexItem.Typ)
+			if err != nil {
+				return nil, fmt.Errorf("Parser error at %d: Missing ')'", lexItem.pos)
+			}
 			node := NewAstNode(nodeType, nil)
 
 			// order important, otherwise we switch operands
+			if stack.Len() < 2 {
+				return nil, fmt.Errorf("Parser error at %d: Missing operand", lexItem.pos)
+			}
+
 			node.Right = stack.Pop().(*AstNode)
 			node.Left = stack.Pop().(*AstNode)
 			stack.Push(node)
 		}
 	}
 
-	return stack.Pop().(*AstNode)
+	if stack.Len() < 1 {
+		return nil, fmt.Errorf("Parsing error: Expression without root")
+	}
+
+	return stack.Pop().(*AstNode), nil
 }
 
 func traversePreorder(root *AstNode) {
@@ -151,12 +167,21 @@ func traversePostorder(root *AstNode) {
 	fmt.Println(root)
 }
 
-func Parse(expr string) *AstNode {
+func Parse(expr string) (*AstNode, error) {
 	lx := Lex(expr)
 	go lx.Run()
 
-	postfixNotation := toPostfix(lx)
-	abstractSyntaxTree := constructAst(postfixNotation)
+	postfixNotation, err := toPostfix(lx)
 
-	return abstractSyntaxTree
+	if err != nil {
+		return nil, err
+	}
+
+	abstractSyntaxTree, err := constructAst(postfixNotation)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return abstractSyntaxTree, nil
 }

@@ -2,10 +2,25 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 func main() {
-	ast := Parse("-2+3")
+
+	args := os.Args
+
+	if len(args) < 2 {
+		fmt.Println("Specify expressions to evaluate...\ne.g.: 1+2*(6-8)")
+		return
+	}
+
+	ast, err := Parse(args[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	result := Interpret(ast)
-	fmt.Println("Result=", result)
+	fmt.Println(result)
 }

@@ -157,7 +157,7 @@ func lexFn(l *Lexer) stateFn {
 	case strings.ContainsRune(rpar, r):
 		return lexRpar
 	default:
-		return l.errorf("InValid symbol: %q", r)
+		return l.errorf("Invalid symbol: %q", r)
 	}
 }
 

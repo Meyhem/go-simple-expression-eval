@@ -1,4 +1,4 @@
-package parser
+package main
 
 type Stack struct {
 	buf []interface{}
@@ -16,6 +16,11 @@ func (s *Stack) Push(val interface{}) {
 
 func (s *Stack) Pop() interface{} {
 	len := len(s.buf)
+
+	if len < 1 {
+		panic("Attempting to Pop() from empty stack")
+	}
+
 	val := s.buf[len-1]
 
 	s.buf = s.buf[0 : len-1]

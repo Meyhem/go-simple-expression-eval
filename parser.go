@@ -1,26 +1,20 @@
-package parser
+package main
 
 import (
 	"container/list"
 	"fmt"
-
-	"../lexer"
 )
 
-type parser struct {
-	x int
-}
-
-func precedence(typ lexer.ItemType) int {
+func precedence(typ ItemType) int {
 	switch typ {
-	case lexer.IADD:
+	case IADD:
 		fallthrough
-	case lexer.ISUB:
+	case ISUB:
 		return 1
 
-	case lexer.IMUL:
+	case IMUL:
 		fallthrough
-	case lexer.IDIV:
+	case IDIV:
 		return 2
 
 	default:
@@ -28,7 +22,7 @@ func precedence(typ lexer.ItemType) int {
 	}
 }
 
-func toPostfix(lx *lexer.Lexer) *list.List {
+func toPostfix(lx *Lexer) *list.List {
 
 	opStack := NewStack()
 	postFix := list.New()
@@ -36,36 +30,36 @@ func toPostfix(lx *lexer.Lexer) *list.List {
 	for item := range lx.Items() {
 
 		// end of tok stream
-		if item.Typ == lexer.EOF {
+		if item.Typ == EOF {
 			continue
 		}
 
 		// lexing error
-		if item.Typ == lexer.IERR {
+		if item.Typ == IERR {
 			panic("Lexing error")
 		}
 
 		// if its number put to output
-		if item.Typ == lexer.INUMBER {
+		if item.Typ == INUMBER {
 			postFix.PushBack(item)
 			continue
 		}
 
 		// if left parenth put to output
-		if item.Typ == lexer.ILPAR {
+		if item.Typ == ILPAR {
 			opStack.Push(item)
 			continue
 		}
 
 		// if right parenth
-		if item.Typ == lexer.IRPAR {
+		if item.Typ == IRPAR {
 			// pop stack to output until we find left parenth in stack
-			for opStack.Len() > 0 && opStack.Top().(lexer.LexItem).Typ != lexer.ILPAR {
+			for opStack.Len() > 0 && opStack.Top().(LexItem).Typ != ILPAR {
 				postFix.PushBack(opStack.Pop())
 			}
 
 			// if there is none then there is error in parity
-			if opStack.Len() > 0 && opStack.Top().(lexer.LexItem).Typ != lexer.ILPAR {
+			if opStack.Len() > 0 && opStack.Top().(LexItem).Typ != ILPAR {
 				panic("Invalid expr")
 			} else {
 				// otherwise just trash it
@@ -74,7 +68,7 @@ func toPostfix(lx *lexer.Lexer) *list.List {
 		} else {
 			// is any other operator
 			// check precedence
-			for opStack.Len() > 0 && precedence(item.Typ) <= precedence(opStack.Top().(lexer.LexItem).Typ) {
+			for opStack.Len() > 0 && precedence(item.Typ) <= precedence(opStack.Top().(LexItem).Typ) {
 				// just put it to output
 				postFix.PushBack(opStack.Pop())
 			}
@@ -91,32 +85,34 @@ func toPostfix(lx *lexer.Lexer) *list.List {
 	return postFix
 }
 
-func translateLexToAstType(typ lexer.ItemType) AstNodeType {
+func translateLexToAstType(typ ItemType) AstNodeType {
 	switch typ {
-	case lexer.IADD:
+	case IADD:
 		return ASTNODE_ADD
-	case lexer.ISUB:
+	case ISUB:
 		return ASTNODE_SUB
-	case lexer.IMUL:
+	case IMUL:
 		return ASTNODE_MUL
-	case lexer.IDIV:
+	case IDIV:
 		return ASTNODE_DIV
 	default:
-		panic(fmt.Sprintf("Unexpected lexer item type occured during parsing %q", typ))
+		panic(fmt.Sprintf("Unexpected item type occured during parsing %q", typ))
 	}
 }
 
 func constructAst(postfixList *list.List) *AstNode {
 	stack := NewStack()
 	for item := postfixList.Front(); item != nil; item = item.Next() {
-		lexItem := item.Value.(lexer.LexItem)
-		if lexItem.Typ == lexer.INUMBER {
+		lexItem := item.Value.(LexItem)
+		if lexItem.Typ == INUMBER {
 			stack.Push(NewAstNode(ASTNODE_LEAF, &lexItem.Val))
 		} else {
 			nodeType := translateLexToAstType(lexItem.Typ)
 			node := NewAstNode(nodeType, nil)
-			node.Left = stack.Pop().(*AstNode)
+
+			// order important, otherwise we switch operands
 			node.Right = stack.Pop().(*AstNode)
+			node.Left = stack.Pop().(*AstNode)
 			stack.Push(node)
 		}
 	}
@@ -156,7 +152,7 @@ func traversePostorder(root *AstNode) {
 }
 
 func Parse(expr string) *AstNode {
-	lx := lexer.Lex(expr)
+	lx := Lex(expr)
 	go lx.Run()
 
 	postfixNotation := toPostfix(lx)

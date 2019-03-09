@@ -33,7 +33,7 @@ type stateFn func(*Lexer) stateFn
 
 type LexItem struct {
 	Typ ItemType
-	pos int
+	Pos int
 	Val string
 }
 
@@ -61,14 +61,14 @@ func (li LexItem) String() string {
 		strType = "EOF"
 	}
 
-	return fmt.Sprintf("type: %s, Val: %q, start: %d", strType, li.Val, li.pos)
+	return fmt.Sprintf("Type: %s, Val: %q, Pos: %d", strType, li.Val, li.Pos)
 
 }
 
 type Lexer struct {
 	text  string
 	start int
-	pos   int
+	Pos   int
 	width int
 	items chan LexItem
 }
@@ -78,22 +78,22 @@ func (l *Lexer) dumpState() {
 }
 
 func (l *Lexer) next() rune {
-	if l.pos >= len(l.text) {
+	if l.Pos >= len(l.text) {
 		l.width = 0
 		return EOF
 	}
 
-	r, w := utf8.DecodeRuneInString(l.text[l.pos:])
+	r, w := utf8.DecodeRuneInString(l.text[l.Pos:])
 
 	l.width = w
-	l.pos += w
+	l.Pos += w
 
 	return r
 }
 
 func (l *Lexer) backup() {
-	l.pos -= l.width
-	_, w := utf8.DecodeLastRuneInString(l.text[:l.pos])
+	l.Pos -= l.width
+	_, w := utf8.DecodeLastRuneInString(l.text[:l.Pos])
 	l.width = w
 }
 
@@ -117,22 +117,22 @@ func (l *Lexer) consumeAll(runes string) {
 }
 
 func (l *Lexer) ignore() {
-	l.start = l.pos
+	l.start = l.Pos
 	l.width = 0
 }
 
 func (l *Lexer) emit(typ ItemType) {
 	l.items <- LexItem{
 		Typ: typ,
-		pos: l.pos,
-		Val: l.text[l.start:l.pos],
+		Pos: l.Pos,
+		Val: l.text[l.start:l.Pos],
 	}
-	l.start = l.pos
+	l.start = l.Pos
 }
 
 func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
 	l.items <- LexItem{
-		pos: l.pos,
+		Pos: l.Pos,
 		Typ: IERR,
 		Val: fmt.Sprintf(format, args...),
 	}

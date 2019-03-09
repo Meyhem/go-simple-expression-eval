@@ -28,7 +28,6 @@ func toPostfix(lx *Lexer) (*list.List, error) {
 	postFix := list.New()
 
 	for item := range lx.Items() {
-
 		// end of tok stream
 		if item.Typ == EOF {
 			continue
@@ -36,7 +35,7 @@ func toPostfix(lx *Lexer) (*list.List, error) {
 
 		// lexing error
 		if item.Typ == IERR {
-			return nil, fmt.Errorf("Lexing error at %d: %s", item.pos, item.Val)
+			return nil, fmt.Errorf("Lexing error at %d: %s", item.Pos, item.Val)
 		}
 
 		// if its number put to output
@@ -60,12 +59,12 @@ func toPostfix(lx *Lexer) (*list.List, error) {
 
 			// if there is none then there is error in parity
 			if opStack.Len() > 0 && opStack.Top().(LexItem).Typ != ILPAR {
-				return nil, fmt.Errorf("Parser error at %d: Unmatched paretheses", opStack.Top().(LexItem).pos)
+				return nil, fmt.Errorf("Parser error at %d: Unmatched paretheses", opStack.Top().(LexItem).Pos)
 			}
 
 			// we are in rparenth so if there is no lparenh its parity error
 			if opStack.Len() == 0 {
-				return nil, fmt.Errorf("Parsing error at %d: Missing '('", item.pos)
+				return nil, fmt.Errorf("Parsing error at %d: Missing '('", item.Pos)
 			}
 			// otherwise just trash it
 			opStack.Pop()
@@ -114,13 +113,13 @@ func constructAst(postfixList *list.List) (*AstNode, error) {
 		} else {
 			nodeType, err := translateLexToAstType(lexItem.Typ)
 			if err != nil {
-				return nil, fmt.Errorf("Parser error at %d: Missing ')'", lexItem.pos)
+				return nil, fmt.Errorf("Parser error at %d: Missing ')'", lexItem.Pos)
 			}
 			node := NewAstNode(nodeType, nil)
 
 			// order important, otherwise we switch operands
 			if stack.Len() < 2 {
-				return nil, fmt.Errorf("Parser error at %d: Missing operand", lexItem.pos)
+				return nil, fmt.Errorf("Parser error at %d: Missing operand", lexItem.Pos)
 			}
 
 			node.Right = stack.Pop().(*AstNode)

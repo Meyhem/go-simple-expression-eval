@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"./parser"
 )
 
 func main() {
-	parser.Parse("1+2*3/4-5/6+7*8-9")
+	ast := parser.Parse("1/2+3/4")
+	fmt.Println(ast)
 }

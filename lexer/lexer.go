@@ -6,76 +6,81 @@ import (
 	"unicode/utf8"
 )
 
-type itemType int
+type ItemType int
 
 const (
-	iErr             = 0
-	iNUMBER itemType = iota
-	iWHITE
-	iADD
-	iSUB
-	iMUL
-	iDIV
+	IERR             = 0
+	INUMBER ItemType = iota
+	ILPAR
+	IRPAR
+	IADD
+	ISUB
+	IMUL
+	IDIV
 )
 
-const eof = -1
+const EOF = -1
 
 const (
 	numbers   = "0123456789"
 	operators = "+-*/"
 	white     = " \n\r\t"
+	lpar      = "("
+	rpar      = ")"
 )
 
-type stateFn func(*lexer) stateFn
+type stateFn func(*Lexer) stateFn
 
-type lexItem struct {
-	typ itemType
+type LexItem struct {
+	Typ ItemType
 	pos int
-	val string
+	Val string
 }
 
-func (li lexItem) String() string {
+func (li LexItem) String() string {
 	strType := "UNDEFINED"
 
-	switch li.typ {
-	case iErr:
-		strType = "iErr"
-	case iNUMBER:
-		strType = "iNUMBER"
-	case iWHITE:
-		strType = "iWHITE"
-	case iADD:
-		strType = "iADD"
-	case iSUB:
-		strType = "iSUB"
-	case iMUL:
-		strType = "iMUL"
-	case iDIV:
-		strType = "iDIV"
-	case eof:
+	switch li.Typ {
+	case IERR:
+		strType = "IERR"
+	case INUMBER:
+		strType = "INUMBER"
+	case ILPAR:
+		strType = "ILPAR"
+	case IRPAR:
+		strType = "IRPAR"
+	case IADD:
+		strType = "IADD"
+	case ISUB:
+		strType = "ISUB"
+	case IMUL:
+		strType = "IMUL"
+	case IDIV:
+		strType = "IDIV"
+	case EOF:
 		strType = "EOF"
 	}
 
-	return fmt.Sprintf("type: %s, val: %q, start: %d", strType, li.val, li.pos)
+	return fmt.Sprintf("type: %s, Val: %q, start: %d", strType, li.Val, li.pos)
 
 }
 
-type lexer struct {
+type Lexer struct {
 	text  string
 	start int
 	pos   int
 	width int
-	items chan lexItem
+	items chan LexItem
 }
 
-func (l *lexer) dumpState() {
+func (l *Lexer) dumpState() {
 	fmt.Printf("%#v\n", l)
 }
 
-func (l *lexer) next() rune {
+func (l *Lexer) next() rune {
 	if l.pos >= len(l.text) {
 		l.width = 0
-		return eof
+		return EOF
 	}
 
 	r, w := utf8.DecodeRuneInString(l.text[l.pos:])
@@ -86,19 +91,19 @@ func (l *lexer) next() rune {
 	return r
 }
 
-func (l *lexer) backup() {
+func (l *Lexer) backup() {
 	l.pos -= l.width
 	_, w := utf8.DecodeLastRuneInString(l.text[:l.pos])
 	l.width = w
 }
 
-func (l *lexer) peek() rune {
+func (l *Lexer) peek() rune {
 	r := l.next()
 	l.backup()
 	return r
 }
 
-func (l *lexer) consume(runes string) bool {
+func (l *Lexer) consume(runes string) bool {
 	if strings.ContainsRune(runes, l.next()) {
 		return true
 	}
@@ -106,82 +111,103 @@ func (l *lexer) consume(runes string) bool {
 	return false
 }
 
-func (l *lexer) consumeAll(runes string) {
+func (l *Lexer) consumeAll(runes string) {
 	for l.consume(runes) {
 	}
 }
 
-func (l *lexer) emit(typ itemType) {
-	l.items <- lexItem{
-		typ: typ,
+func (l *Lexer) ignore() {
+	l.start = l.pos
+	l.width = 0
+}
+
+func (l *Lexer) emit(typ ItemType) {
+	l.items <- LexItem{
+		Typ: typ,
 		pos: l.pos,
-		val: l.text[l.start:l.pos],
+		Val: l.text[l.start:l.pos],
 	}
 	l.start = l.pos
 }
 
-func (l *lexer) errorf(format string, args ...interface{}) stateFn {
-	l.items <- lexItem{
+func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
+	l.items <- LexItem{
 		pos: l.pos,
-		typ: iErr,
-		val: fmt.Sprintf(format, args...),
+		Typ: IERR,
+		Val: fmt.Sprintf(format, args...),
 	}
 	return nil
 }
 
-func lexFn(l *lexer) stateFn {
+func lexFn(l *Lexer) stateFn {
 	r := l.peek()
 	switch {
-	case r == eof:
-		l.emit(eof)
+	case r == EOF:
+		l.emit(EOF)
 		return nil
+
+	case strings.ContainsRune(white, r):
+		return lexWhite
 	case strings.ContainsRune(operators, r):
 		return lexOperator
 	case strings.ContainsRune(numbers, r):
 		return lexNumber
-	case strings.ContainsRune(white, r):
-		return lexWhite
-
+	case strings.ContainsRune(lpar, r):
+		return lexLpar
+	case strings.ContainsRune(rpar, r):
+		return lexRpar
 	default:
-		return l.errorf("Invalid symbol: %q", r)
+		return l.errorf("InValid symbol: %q", r)
 	}
 }
 
-func lexOperator(l *lexer) stateFn {
+func lexOperator(l *Lexer) stateFn {
 	op := l.next()
 	switch op {
 	case '+':
-		l.emit(iADD)
+		l.emit(IADD)
 	case '-':
-		l.emit(iSUB)
+		l.emit(ISUB)
 	case '*':
-		l.emit(iMUL)
+		l.emit(IMUL)
 	case '/':
-		l.emit(iDIV)
+		l.emit(IDIV)
 	default:
-		return l.errorf("lexOperator: invalid operator: %q", op)
+		return l.errorf("lexOperator: inValid operator: %q", op)
 	}
 
 	return lexFn
 }
 
-func lexNumber(l *lexer) stateFn {
+func lexLpar(l *Lexer) stateFn {
+	l.consume(lpar)
+	l.emit(ILPAR)
+	return lexFn
+}
+
+func lexRpar(l *Lexer) stateFn {
+	l.consume(rpar)
+	l.emit(IRPAR)
+	return lexFn
+}
+
+func lexNumber(l *Lexer) stateFn {
 	l.consumeAll(numbers)
-	l.emit(iNUMBER)
+	l.emit(INUMBER)
 	return lexFn
 }
 
-func lexWhite(l *lexer) stateFn {
+func lexWhite(l *Lexer) stateFn {
 	l.consumeAll(white)
-	l.emit(iWHITE)
+	l.ignore()
 	return lexFn
 }
 
-func (l *lexer) Items() chan lexItem {
+func (l *Lexer) Items() chan LexItem {
 	return l.items
 }
 
-func (l *lexer) Run() {
+func (l *Lexer) Run() {
 	defer close(l.items)
 
 	for fun := lexFn; fun != nil; {
@@ -190,9 +216,9 @@ func (l *lexer) Run() {
 
 }
 
-func Lex(text string) *lexer {
-	return &lexer{
-		items: make(chan lexItem),
+func Lex(text string) *Lexer {
+	return &Lexer{
+		items: make(chan LexItem),
 		text:  text,
 	}
 }

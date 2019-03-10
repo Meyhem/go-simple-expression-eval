@@ -1,7 +1,8 @@
 # go-simple-expression-eval
-Simple expression evaluator in golang for learning lexers, parsers, ast's and interpreters.
+Simple expression evaluator in golang for learning lexers, parsers, ast's and interpreters.   
 
-// no dependencies
+This project doesn't support unary operators, so expression "-1+2" will report us "Missing operand".
+For the unary operator support a modified version of Shunting-yard algorithm is needed ([See this project](https://github.com/MacTee/Shunting-Yard-Algorithm/blob/master/ShuntingYard/InfixToPostfixConverter.cs))
 
 # Running
 **go build**  
@@ -26,7 +27,7 @@ I heavily recommend watching [Youtube - Lexical Scanning in Go - Rob Pike](https
 
 Given well-formed expression input: "1+2+3", lexer correctly produces sequence "1", "+", "2", "+", "3".
 
-Given not well-formed expression, such as "1)+3(((" lexer **doesn't report any errors**, but produces corresponding sequence.
+Given not well-formed expression, such as "1)+3(((" lexer **doesn't report any errors**, but produces sequence "1", ")", "+", "3", "(", "(", "(". Errors will be reported in parsing phase not in lexing phase.
 
 Gived input with unrecognized characters "*12+死+3" lexer produces error:
 
@@ -51,7 +52,7 @@ Type: EOF, Val: "", Pos: 9
 # Form conversion
 _parser.go : toPostfix()_
 
-The classical format of expressions "&lt;operand&gt; &lt;operator&gt; &lt;operand&gt;" is called **infix form**. This form is somewhat troublesome when constructing AST so first we will convert **Infox form** to **Postfix form** using Shunting yard algorithm. Postfix form uses rather weird syntax "&lt;operand&gt; &lt;operand&gt; &lt;operator&gt;". The advantage is that we get rid of the need for parentheses those are required in infix form.
+The classical format of expressions "&lt;operand&gt; &lt;operator&gt; &lt;operand&gt;" is called **infix form**. This form is somewhat troublesome when constructing AST so first we will convert **Infox form** to **Postfix form** using Shunting yard algorithm. Postfix form uses rather weird syntax "&lt;operand&gt; &lt;operand&gt; &lt;operator&gt;". The advantage is that we get rid of the need for parentheses (those are required in infix form).
 
 This algorithm goes trough out lexer tokens and using **stack data structure** and **list** converts the form. Stack is used as stacked operator store and list for postfix output.
 
@@ -59,7 +60,7 @@ The algorithm is following:
 1. If current token is number (INUMBER) then put it to output
 2. If current token is left parenthesis then Push it to stack
 3. If current token is right parenthesis then Pop stack until we hit left parenthesis and Pop it out
-4. If current token is operator +,-,*,/ the Pop stack until we find operator with higher or equal precedence (see below) and Push current operator
+4. If current token is operator +,-,*,/ Pop the stack until we find operator with higher or equal precedence (see below) and Push current operator
 5. When we go trough all tokens, Pop all items from stack to output
 
 **Operator precedence:**  

@@ -6,21 +6,39 @@ import (
 	"unicode/utf8"
 )
 
+// ItemType is type of lexer items
 type ItemType int
 
+// Item types from lexer items
 const (
-	IERR             = 0
+	// lexing error occured
+	IERR = 0
+	// positive integer
 	INUMBER ItemType = iota
+
+	// left parenthesis
 	ILPAR
+
+	// right parenthesis
 	IRPAR
+
+	// plus + symbol
 	IADD
+
+	// minus - symbol
 	ISUB
+
+	// multiply * symbol
 	IMUL
+
+	// divide / symbol
 	IDIV
 )
 
+// EOF Item type denoting end of input
 const EOF = -1
 
+// Tokens understood by lexer
 const (
 	numbers   = "0123456789"
 	operators = "+-*/"
@@ -29,14 +47,17 @@ const (
 	rpar      = ")"
 )
 
+// Type for lexing state machine, function returns another function which represents state transition
 type stateFn func(*Lexer) stateFn
 
+// LexItem are items emitted by lexer
 type LexItem struct {
 	Typ ItemType
 	Pos int
 	Val string
 }
 
+// Debug stringify lex item
 func (li LexItem) String() string {
 	strType := "UNDEFINED"
 
@@ -65,11 +86,21 @@ func (li LexItem) String() string {
 
 }
 
+// Lexer class containing state of lexer
 type Lexer struct {
-	text  string
+	// input text
+	text string
+
+	// start index (of input text) of currently lexing token
 	start int
-	Pos   int
+
+	// current position (of input text) of lexer
+	Pos int
+
+	// width of last read rune
 	width int
+
+	// output channel of lexer
 	items chan LexItem
 }
 
@@ -77,6 +108,7 @@ func (l *Lexer) dumpState() {
 	fmt.Printf("%#v\n", l)
 }
 
+// Move to next ASCII or UTF-8 character/rune
 func (l *Lexer) next() rune {
 	if l.Pos >= len(l.text) {
 		l.width = 0
@@ -91,18 +123,21 @@ func (l *Lexer) next() rune {
 	return r
 }
 
+// Go back one character/rune
 func (l *Lexer) backup() {
 	l.Pos -= l.width
 	_, w := utf8.DecodeLastRuneInString(l.text[:l.Pos])
 	l.width = w
 }
 
+// Check what rune is next in input
 func (l *Lexer) peek() rune {
 	r := l.next()
 	l.backup()
 	return r
 }
 
+// Consume next rune if its one of 'runes' parameter, otherwise no effect
 func (l *Lexer) consume(runes string) bool {
 	if strings.ContainsRune(runes, l.next()) {
 		return true
@@ -111,16 +146,19 @@ func (l *Lexer) consume(runes string) bool {
 	return false
 }
 
+// Consume all following runes that are one of 'runes'
 func (l *Lexer) consumeAll(runes string) {
 	for l.consume(runes) {
 	}
 }
 
+// Ignores all un-emitted characters (moves start to current pos)
 func (l *Lexer) ignore() {
 	l.start = l.Pos
 	l.width = 0
 }
 
+// Emits lexer item to output channel
 func (l *Lexer) emit(typ ItemType) {
 	l.items <- LexItem{
 		Typ: typ,
@@ -130,6 +168,7 @@ func (l *Lexer) emit(typ ItemType) {
 	l.start = l.Pos
 }
 
+// Helper func that emits error item IERR with message
 func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
 	l.items <- LexItem{
 		Pos: l.Pos,
@@ -139,6 +178,7 @@ func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
 	return nil
 }
 
+// Starting state of state machine, peeks forward and decides what lexing function should be used
 func lexFn(l *Lexer) stateFn {
 	r := l.peek()
 	switch {
@@ -161,6 +201,7 @@ func lexFn(l *Lexer) stateFn {
 	}
 }
 
+// Lexes operators
 func lexOperator(l *Lexer) stateFn {
 	op := l.next()
 	switch op {
@@ -179,34 +220,42 @@ func lexOperator(l *Lexer) stateFn {
 	return lexFn
 }
 
+// Lexes left parenthesis
 func lexLpar(l *Lexer) stateFn {
 	l.consume(lpar)
 	l.emit(ILPAR)
 	return lexFn
 }
 
+// Lexes right parenthesis
 func lexRpar(l *Lexer) stateFn {
 	l.consume(rpar)
 	l.emit(IRPAR)
 	return lexFn
 }
 
+// lexes numbers
 func lexNumber(l *Lexer) stateFn {
 	l.consumeAll(numbers)
 	l.emit(INUMBER)
 	return lexFn
 }
 
+// Lexes whitespaces and thrashes them (no emitting)
 func lexWhite(l *Lexer) stateFn {
 	l.consumeAll(white)
 	l.ignore()
 	return lexFn
 }
 
+// Items method gets channel of lex items
 func (l *Lexer) Items() chan LexItem {
 	return l.items
 }
 
+// Run method will is the core part of this lexer
+// It fires off the state machine, starting with lexFn and takes return function as next state
+// once some function returns nil (e.g. EOF), it stops lexing and returns
 func (l *Lexer) Run() {
 	defer close(l.items)
 
@@ -216,6 +265,7 @@ func (l *Lexer) Run() {
 
 }
 
+// Lex is constructor for lexer
 func Lex(text string) *Lexer {
 	return &Lexer{
 		items: make(chan LexItem),

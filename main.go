@@ -14,6 +14,7 @@ func main() {
 		return
 	}
 
+	// parse given expression into AST
 	ast, err := Parse(args[1])
 
 	if err != nil {
@@ -21,6 +22,7 @@ func main() {
 		return
 	}
 
+	// Interpret AST
 	result := Interpret(ast)
 	fmt.Println(result)
 }

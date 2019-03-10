@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// Determines precedence of operator given
 func precedence(typ ItemType) int {
 	switch typ {
 	case IADD:
@@ -22,6 +23,7 @@ func precedence(typ ItemType) int {
 	}
 }
 
+// Converts infix output form of Lexer to postfix form
 func toPostfix(lx *Lexer) (*list.List, error) {
 
 	opStack := NewStack()
@@ -89,6 +91,7 @@ func toPostfix(lx *Lexer) (*list.List, error) {
 	return postFix, nil
 }
 
+// helper method that translates Lexer item types to AST node types
 func translateLexToAstType(typ ItemType) (AstNodeType, error) {
 	switch typ {
 	case IADD:
@@ -104,37 +107,52 @@ func translateLexToAstType(typ ItemType) (AstNodeType, error) {
 	}
 }
 
+// Takes list of postfix formed lexer items and builds binary expression tree
 func constructAst(postfixList *list.List) (*AstNode, error) {
+	// stack for storing nodes for later computation
 	stack := NewStack()
+
+	// go trough all items
 	for item := postfixList.Front(); item != nil; item = item.Next() {
 		lexItem := item.Value.(LexItem)
+		// if its number, create node and push it to stack
 		if lexItem.Typ == INUMBER {
 			stack.Push(NewAstNode(ASTNODE_LEAF, &lexItem.Val))
 		} else {
+			// otherwise convert type
 			nodeType, err := translateLexToAstType(lexItem.Typ)
 			if err != nil {
 				return nil, fmt.Errorf("Parser error at %d: Missing ')'", lexItem.Pos)
 			}
+			// create new note
 			node := NewAstNode(nodeType, nil)
 
-			// order important, otherwise we switch operands
+			// validate we have at least two items in stack
 			if stack.Len() < 2 {
 				return nil, fmt.Errorf("Parser error at %d: Missing operand", lexItem.Pos)
 			}
 
+			// order important, otherwise we switch operands
+			// Pop first time to Right operand
 			node.Right = stack.Pop().(*AstNode)
+			// Pop second time to Left operand
 			node.Left = stack.Pop().(*AstNode)
+
+			// push new node to stack
 			stack.Push(node)
 		}
 	}
 
+	// might occur when user inputs "()" expression, no root node
 	if stack.Len() < 1 {
 		return nil, fmt.Errorf("Parsing error: Expression without root")
 	}
 
+	// pop last item from stack, its the root node of AST
 	return stack.Pop().(*AstNode), nil
 }
 
+// helper debug func
 func traversePreorder(root *AstNode) {
 	if root == nil {
 		return
@@ -146,6 +164,7 @@ func traversePreorder(root *AstNode) {
 	traversePreorder(root.Right)
 }
 
+// helper debug func
 func traverseInorder(root *AstNode) {
 	if root == nil {
 		return
@@ -156,6 +175,7 @@ func traverseInorder(root *AstNode) {
 	traversePreorder(root.Right)
 }
 
+// helper debug func
 func traversePostorder(root *AstNode) {
 	if root == nil {
 		return
@@ -166,6 +186,7 @@ func traversePostorder(root *AstNode) {
 	fmt.Println(root)
 }
 
+// Parse parses given infix expression and produces Abstract syntax tree
 func Parse(expr string) (*AstNode, error) {
 	lx := Lex(expr)
 	go lx.Run()

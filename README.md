@@ -8,6 +8,10 @@ For the unary operator support a modified version of Shunting-yard algorithm is 
 **go build**  
 **./go-simple-expression-eval "1+2+3*5-(5-8)"**
 
+or
+
+**go run \*.go "1+2+3*5-(5-8)"**
+
 // quote your expression as it might be shell operator:  
 
 # Program flow

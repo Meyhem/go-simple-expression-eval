@@ -34,35 +34,51 @@ type interpretMap map[AstNodeType]arithmeticFunc
 // 1. Visit left
 // 2. Visit right
 // 3. Visit self
-func postOrderTraversal(node *AstNode, functions interpretMap) int {
+func postOrderTraversal(node *AstNode, functions interpretMap) (int, *EvalError) {
+	if node == nil {
+		return 0, NewInterpreterError("Expected evaluatable node, got nil")
+	}
+
 	// If we are on number node
 	if node.Typ == ASTNODE_LEAF {
 		if node.Value == nil {
-			panic("Intepretation error: Expected value, got nil")
+			return 0, NewInterpreterError("Expected value, got nil")
 		}
 
 		// Parse string val to integer
-		number, _ := strconv.Atoi(*node.Value)
+		number, err := strconv.Atoi(*node.Value)
+
+		if err != nil {
+			return 0, NewInterpreterError("Unable to parse number %s", err)
+		}
 
 		// return it to higher stack frame (numbers should occur only in leaf nodes)
-		return number
+		return number, nil
 	}
 
 	// pick correct computation function
 	aritFunc := functions[node.Typ]
 
 	// recursively evaluate left subtree
-	left := postOrderTraversal(node.Left, functions)
+	left, err := postOrderTraversal(node.Left, functions)
 
-	// recursively evaluate rightsubtree
-	right := postOrderTraversal(node.Right, functions)
+	if err != nil {
+		return 0, err
+	}
+
+	// recursively evaluate right subtree
+	right, err := postOrderTraversal(node.Right, functions)
+
+	if err != nil {
+		return 0, err
+	}
 
 	// use its value to do computation
-	return aritFunc(left, right)
+	return aritFunc(left, right), nil
 }
 
 // Interpret is function that evaluates AST and returns corresponding result
-func Interpret(ast *AstNode) int {
+func Interpret(ast *AstNode) (int, *EvalError) {
 	var astInterpretMap = interpretMap{
 		ASTNODE_ADD: add,
 		ASTNODE_SUB: sub,

@@ -9,12 +9,42 @@ import (
 // ItemType is type of lexer items
 type ItemType int
 
+func (typ ItemType) String() string {
+	strType := "UNDEFINED"
+
+	switch typ {
+	case IERR:
+		strType = "IERR"
+	case INUMBER:
+		strType = "INUMBER"
+	case ILPAR:
+		strType = "ILPAR"
+	case IRPAR:
+		strType = "IRPAR"
+	case IADD:
+		strType = "IADD"
+	case ISUB:
+		strType = "ISUB"
+	case IMUL:
+		strType = "IMUL"
+	case IDIV:
+		strType = "IDIV"
+	case EOF:
+		strType = "EOF"
+	}
+	return strType
+}
+
 // Item types from lexer items
 const (
+	// EOF Item type denoting end of input
+	EOF ItemType = -1
+
 	// lexing error occured
-	IERR = 0
+	IERR ItemType = iota
+
 	// positive integer
-	INUMBER ItemType = iota
+	INUMBER
 
 	// left parenthesis
 	ILPAR
@@ -34,9 +64,6 @@ const (
 	// divide / symbol
 	IDIV
 )
-
-// EOF Item type denoting end of input
-const EOF = -1
 
 // Tokens understood by lexer
 const (
@@ -59,31 +86,7 @@ type LexItem struct {
 
 // Debug stringify lex item
 func (li LexItem) String() string {
-	strType := "UNDEFINED"
-
-	switch li.Typ {
-	case IERR:
-		strType = "IERR"
-	case INUMBER:
-		strType = "INUMBER"
-	case ILPAR:
-		strType = "ILPAR"
-	case IRPAR:
-		strType = "IRPAR"
-	case IADD:
-		strType = "IADD"
-	case ISUB:
-		strType = "ISUB"
-	case IMUL:
-		strType = "IMUL"
-	case IDIV:
-		strType = "IDIV"
-	case EOF:
-		strType = "EOF"
-	}
-
-	return fmt.Sprintf("Type: %s, Val: %q, Pos: %d", strType, li.Val, li.Pos)
-
+	return fmt.Sprintf("Type: %s, Val: %q, Pos: %d", li.Typ, li.Val, li.Pos)
 }
 
 // Lexer class containing state of lexer
@@ -112,7 +115,7 @@ func (l *Lexer) dumpState() {
 func (l *Lexer) next() rune {
 	if l.Pos >= len(l.text) {
 		l.width = 0
-		return EOF
+		return -1 // EOF
 	}
 
 	r, w := utf8.DecodeRuneInString(l.text[l.Pos:])
@@ -182,7 +185,7 @@ func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
 func lexFn(l *Lexer) stateFn {
 	r := l.peek()
 	switch {
-	case r == EOF:
+	case r == -1:
 		l.emit(EOF)
 		return nil
 

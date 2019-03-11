@@ -23,6 +23,12 @@ func main() {
 	}
 
 	// Interpret AST
-	result := Interpret(ast)
+	result, err := Interpret(ast)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	fmt.Println(result)
 }
